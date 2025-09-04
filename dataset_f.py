@@ -11,8 +11,6 @@ from transformers import Wav2Vec2FeatureExtractor
 import scipy.signal as signal
 import scipy.signal
 import random
-
-class FakeMusicCapsDataset(Dataset):
     def __init__(self, file_paths, labels, sr=16000, target_duration=10.0):
         self.file_paths = file_paths
         self.labels = labels
@@ -26,21 +24,6 @@ class FakeMusicCapsDataset(Dataset):
     def pre_emphasis(self, x, alpha=0.97):
         return np.append(x[0], x[1:] - alpha * x[:-1])
     
-    def highpass_filter(self, y, sr, cutoff=1000, order=5): 
-        if isinstance(sr, np.ndarray):
-            sr = np.mean(sr)  
-        if not isinstance(sr, (int, float)):
-            raise ValueError(f"[ERROR] sr must be a number, but got {type(sr)}: {sr}")
-        if sr <= 0:
-            raise ValueError(f"Invalid sample rate: {sr}. It must be greater than 0.")
-        nyquist = 0.5 * sr
-        if cutoff <= 0 or cutoff >= nyquist:
-            print(f"[WARNING] Invalid cutoff frequency {cutoff}, adjusting...")
-            cutoff = max(10, min(cutoff, nyquist - 1))
-        normal_cutoff = cutoff / nyquist
-        b, a = signal.butter(order, normal_cutoff, btype='high', analog=False)
-        y_filtered = signal.lfilter(b, a, y)
-        return y_filtered
         
     # 시간 조절(Time Stretch), 이퀄라이저 조정(EQ), 리버브 추가
     def augment_audio(self, y, sr):

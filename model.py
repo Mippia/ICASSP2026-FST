@@ -42,6 +42,7 @@ class MusicAudioClassifier(pl.LightningModule):
         #         hidden_dim=hidden_dim,
         #         num_classes=num_classes
         #     )
+        self.is_emb = is_emb
     
     def _process_audio_batch(self, x: torch.Tensor) -> torch.Tensor:
         B, S = x.shape[:2]  # [B, S, C, M, T] or [B, S, C, T] for wav, [B, S, 1?, embsize] for emb

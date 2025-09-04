@@ -11,7 +11,6 @@ import torch
 import torchaudio
 import scipy.signal as signal
 from typing import Dict, List
-from dataset_f import FakeMusicCapsDataset
 from networks import MERT_AudioCNN
 from preprocess import get_segments_from_wav, find_optimal_segment_length
 
@@ -200,13 +199,6 @@ def inference(audio_path):
     segments = segments.to('cuda').to(torch.float32)
     padding_mask = padding_mask.to('cuda').unsqueeze(0)    
     logits,embedding = backbone_model(segments.squeeze(1))
-    # test_dataset = FakeMusicCapsDataset([audio_path], [0], target_duration=10.0)
-    # test_data, test_target = test_dataset[0]
-    # test_data = test_data.to('cuda').to(torch.float32)
-    # test_target = test_target.to('cuda')
-    # output, _ = backbone_model(test_data.unsqueeze(0))
-    
-
 
     # 모델 로드 부분 추가
     model = MusicAudioClassifier.load_from_checkpoint(
@@ -230,5 +222,5 @@ def inference(audio_path):
     return results
 
 if __name__ == "__main__":
-    inference("some path")
+    inference("picachu.mp3")
 
