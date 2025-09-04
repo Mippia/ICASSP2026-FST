@@ -174,15 +174,10 @@ def get_model(model_type, device):
     if model_type == "MERT":
         #from model import MusicAudioClassifier
         #model = MusicAudioClassifier(input_dim=768, is_emb=True, mode = 'both', share_parameter = False).to(device)
-        ckpt_file = 'checkpoints/step=007000-val_loss=0.1831-val_acc=0.9278.ckpt'#'mert_finetune_10.pth'
+        ckpt_file = 'checkpoints/step=075000-val_loss=0.0273-val_acc=0.9952.ckpt'#'mert_finetune_10.pth'
         model = MERT_AudioCNN.load_from_checkpoint(ckpt_file).to(device)
         model.eval()
         # model.load_state_dict(torch.load(ckpt_file, map_location=device))
-        embed_dim = 768
-
-    elif model_type == "pure_MERT":
-        from ICASSP_2026.MERT.networks import MERTFeatureExtractor
-        model = MERTFeatureExtractor().to(device)
         embed_dim = 768
 
     else:
@@ -202,8 +197,9 @@ def inference(audio_path):
 
     # 모델 로드 부분 추가
     model = MusicAudioClassifier.load_from_checkpoint(
-        checkpoint_path = 'checkpoints/EmbeddingModel_MERT_768-epoch=0073-val_loss=0.1058-val_acc=0.9585-val_f1=0.9366-val_precision=0.9936-val_recall=0.8857.ckpt',
+        checkpoint_path = 'checkpoints/EmbeddingModel_MERT_768_2class-epoch=0003-val_loss=0.0055-val_acc=0.9987-val_f1=0.9983-val_precision=0.9989-val_recall=0.9978.ckpt',
         input_dim=input_dim, 
+        backbone = 'fusion_segment_transformer'
         #emb_model=backbone_model
         is_emb = True,
     )
