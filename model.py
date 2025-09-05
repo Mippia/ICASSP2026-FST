@@ -8,8 +8,6 @@ from typing import List, Tuple, Optional
 import numpy as np
 from pathlib import Path
 import math
-# from deepspeed.ops.adam import FusedAdam  # 호환성 문제로 비활성화
-
 
 class MusicAudioClassifier(pl.LightningModule):
     def __init__(self,

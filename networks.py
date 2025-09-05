@@ -6,7 +6,6 @@ from transformers import AutoModel, AutoConfig
 from transformers import Wav2Vec2Model, Wav2Vec2Processor, Data2VecAudioModel
 import torchmetrics
 
-
 class cnnblock(nn.Module):
     def __init__(self, embed_dim=512):
         super(cnnblock, self).__init__()
@@ -288,10 +287,10 @@ class MERT(nn.Module):
             param.requires_grad = True
 
 
-class MERT_AudioCNN(pl.LightningModule):
+class MERT_AudioCAT(pl.LightningModule):
     def __init__(self, embed_dim=768, num_heads=8, num_layers=6, num_classes=2, 
                  freeze_feature_extractor=False, learning_rate=2e-5, weight_decay=0.01):
-        super(MERT_AudioCNN, self).__init__()
+        super(MERT_AudioCAT, self).__init__()
         self.save_hyperparameters()
         self.feature_extractor = MERT(freeze_feature_extractor=freeze_feature_extractor)
         self.cross_attention_layers = nn.ModuleList([

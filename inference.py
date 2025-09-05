@@ -9,7 +9,7 @@ from model import MusicAudioClassifier
 import argparse
 import torchaudio
 import scipy.signal as signal
-from new_networks import MERT_AudioCNN
+from networks import MERT_AudioCAT
 from preprocess import get_segments_from_wav, find_optimal_segment_length
 
 from rich.console import Console
