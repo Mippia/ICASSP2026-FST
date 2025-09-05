@@ -11,7 +11,7 @@ import torch
 import torchaudio
 import scipy.signal as signal
 from typing import Dict, List
-from networks import MERT_AudioCNN
+from new_networks import MERT_AudioCNN
 from preprocess import get_segments_from_wav, find_optimal_segment_length
 
 
@@ -199,7 +199,7 @@ def inference(audio_path):
     model = MusicAudioClassifier.load_from_checkpoint(
         checkpoint_path = 'checkpoints/EmbeddingModel_MERT_768_2class-epoch=0003-val_loss=0.0055-val_acc=0.9987-val_f1=0.9983-val_precision=0.9989-val_recall=0.9978.ckpt',
         input_dim=input_dim, 
-        backbone = 'fusion_segment_transformer'
+        backbone = 'fusion_segment_transformer',
         #emb_model=backbone_model
         is_emb = True,
     )
