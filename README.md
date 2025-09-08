@@ -51,51 +51,8 @@ Download pretrained checkpoints from Google Drive:
 
 ## Inference
 
-Run inference on the song you want to analyze:
+Check the audio you want to analyze using the inference.py:
 
 ```bash
 python inference.py --audio ./examples/test.wav
 ```
-
-## 📖 About Fusion Segment Transformer
-
-### 🎼 Stage-1: Feature Embedding Extractor for Short Audio Segment Detection
-
-<img width="1511" height="527" alt="Image" src="https://github.com/user-attachments/assets/b9ab6120-ed00-4587-b0f6-9d1c0b11d052" />
-
-
-Stage-1: **AudioCAT framework** for short-audio segment detection.  
-Feature extractors (a–e) are variably selected:  
-
-- (a–d) use publicly available pretrained weights  
-- (e) is pre-trained and further fine-tuned as the AudioCAT encoder  
-
-We reuse the feature extractors such as **Wav2vec, Music2vec, MERT, and FX-encoder** employed in our previous work.  
-Additionally, we compare them with the **Muffin Encoder**, which is specialized for multi-band frequency, to evaluate their ability in detecting short audio segments.
-
-### 🎼 Stage-2: Fusion Segment Transformer for Full Audio Segment Detection
-
-<img width="2252" height="660" alt="Image" src="https://github.com/user-attachments/assets/275e2422-d9dd-4940-a102-b56e35e7900d" />
-
-Stage-2: **Fusion-enhanced Segment Transformer** architecture with dual-stream processing, cross-modal fusion mechanism, and multi-scale adaptive pooling for full-audio AIGM detection.
-
-
-## 📊 Quantitative Results
-
-### SONICS
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/62ef2b13-2792-426e-bfe8-30da1b4e8148" alt="SONICS results table" width="70%">
-</p>
-
-Overall performance comparison of full-audio segment detection by segment-level detectors on the SONICS dataset.  
-*Best*: **Bold**; *Second best*: <u>Underline</u>.
-
-### AIME
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/b85ebe92-0c03-4b44-9762-401d07c0edbb" alt="AIME results table" width="70%">
-</p>
-
-Overall performance comparison of full-audio segment detection by segment-level detectors on the AIME dataset.  
-*Best*: **Bold**; *Second best*: <u>Underline</u>.
