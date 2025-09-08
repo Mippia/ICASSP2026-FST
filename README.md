@@ -7,7 +7,7 @@ Yumin Kim*, Seonghyeon Go*
 *MIPPIA Inc.*
 
 [![Project Page](https://img.shields.io/badge/Project-Page-blue)](https://mippia.com/)
-[![Demo Page](https://img.shields.io/badge/Demo-Page-blue)](https://mippia.com/)
+[![Demo Page](https://img.shields.io/badge/Demo-Page-red)](https://mippia.com/)
 
 </div>
 
