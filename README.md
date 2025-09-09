@@ -37,7 +37,7 @@ pip install -r requirements.txt
 
 Download pretrained checkpoints from Google Drive:
 
-- [Stage-1 (MERT-AudioCAT)](https://drive.google.com/file/d/1frT4Mn0l6rso407Sy3eWCKbZmgwuVceN/view?usp=sharing)  
+- [Stage-1 (MERT-AudioCAT)]([https://drive.google.com/file/d/1frT4Mn0l6rso407Sy3eWCKbZmgwuVceN/view?usp=sharing](https://drive.google.com/file/d/1frT4Mn0l6rso407Sy3eWCKbZmgwuVceN/view?usp=drive_link))  
 - [Stage-2 (Fusion Segment Transformer)](https://drive.google.com/file/d/1ktCDD2y91Rp07qK9olpFwK02waBajYf7/view?usp=sharing)  
 
 
