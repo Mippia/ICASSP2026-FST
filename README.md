@@ -15,8 +15,6 @@ Yumin Kim*, Seonghyeon Go*
 <img width="2252" height="660" alt="Image" src="https://github.com/user-attachments/assets/275e2422-d9dd-4940-a102-b56e35e7900d" />
 
 
----
-
 ### Abstract
 With the rise of generative AI technology, anyone can now easily create and deploy AI-generated music, which has heightened the need for technical solutions to address copyright and ownership issues. While prior works have largely focused on short-audio segments, the challenge of full-audio detection, which requires modeling long-term structure and context, remains insufficiently explored. To address this, we propose Fusion Segment Transformer, which improves to the model architecture using fusion layers to combine content and structure information better. As in our previous work, we employ diverse feature extractors to provide complementary insights. In addition, we implement the Muffin Encoder, a frequency-sensitive model that is specifically designed to address high-frequency artifacts characteristic of AI-generated music. Experiments on the SONICS and AIME datasets show that our approach consistently outperforms the previous Segment Transformer and recent baselines, achieving new state-of-the-art results in full-audio AI-generated music detection.
 
@@ -26,10 +24,6 @@ With the rise of generative AI technology, anyone can now easily create and depl
 - [Installation](#installation)
 - [Checkpoints](#checkpoints)
 - [Inference](#inference)
-- [About Fusion Segment Transformer](#about-fusion-segment-transformer)
-  - [Stage-1: Feature Embedding Extractor for Short Audio Segment Detection](#-stage-1-feature-embedding-extractor-for-short-audio-segment-detection)
-  - [Stage-2: Fusion Segment Transformer for Full Audio Segment Detection](#-stage-2-fusion-segment-transformer-for-full-audio-segment-detection)
-  - [Quantitative Results](#quantitative-results)
 
 ---
 
