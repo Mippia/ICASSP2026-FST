@@ -6,7 +6,7 @@
 Yumin Kim*, Seonghyeon Go*  
 *MIPPIA Inc.*
 
-[![Project Page](https://img.shields.io/badge/Project-Page-blue)](https://mippia.com/)
+[![Project Page](https://img.shields.io/badge/Project-Page-blue)]([https://mippia.com/](https://mippia.github.io/ICASSP2026-FST/))
 [![Demo Page](https://img.shields.io/badge/Demo-Page-red)](https://huggingface.co/spaces/mippia/AI-Music-Detection-FST)
 
 </div>
