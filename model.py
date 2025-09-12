@@ -8,6 +8,232 @@ from typing import List, Tuple, Optional
 import numpy as np
 from pathlib import Path
 import math
+from transformers import AutoModel, AutoConfig
+
+class CrossAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        super(CrossAttention, self).__init__()
+        self.multihead_attn = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
+        self.layer_norm1 = nn.LayerNorm(embed_dim)
+        self.layer_norm2 = nn.LayerNorm(embed_dim)
+        self.feed_forward = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.ReLU(),
+            nn.Linear(embed_dim * 4, embed_dim)
+        )
+
+    def forward(self, x, cross_input):
+        attn_output, _ = self.multihead_attn(query=x, key=cross_input, value=cross_input)
+        attn_output = F.normalize(attn_output, p=2, dim=-1)
+        x = self.layer_norm1(x + attn_output)
+        ff_output = self.feed_forward(x)
+        ff_output = F.normalize(ff_output, p=2, dim=-1)
+        x = self.layer_norm2(x + ff_output)
+        return x
+
+
+class CrossAttn_Transformer(nn.Module):
+    def __init__(self, embed_dim=512, num_heads=8, num_layers=6, num_classes=2):
+        super(CrossAttn_Transformer, self).__init__()
+
+        self.cross_attention_layers = nn.ModuleList([
+            CrossAttention(embed_dim, num_heads) for _ in range(num_layers)
+        ])
+
+        encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        self.encoder =  nn.LayerNorm(embed_dim)
+        self.classifier = nn.Linear(embed_dim, num_classes)
+
+    def forward(self, x, cross_attention_input):
+        self.attention_maps = []  
+        for layer in self.cross_attention_layers:
+            x = layer(x, cross_attention_input)
+
+        x = x.permute(1, 0, 2)
+        x = self.transformer(x)
+        x = x.mean(dim=0)
+        embedding  = self.encoder(x)
+        x = self.classifier(embedding)
+        return x, embedding
+
+class MERT(nn.Module):
+    def __init__(self, freeze_feature_extractor=True):
+        super(MERT, self).__init__()
+        config = AutoConfig.from_pretrained("m-a-p/MERT-v1-95M", trust_remote_code=True)
+        if not hasattr(config, "conv_pos_batch_norm"):
+            setattr(config, "conv_pos_batch_norm", False)
+        self.mert = AutoModel.from_pretrained("m-a-p/MERT-v1-95M", config=config, trust_remote_code=True)
+        
+        if freeze_feature_extractor:
+            self.freeze()
+
+    def forward(self, input_values):
+        with torch.no_grad():
+            outputs = self.mert(input_values, output_hidden_states=True)
+        hidden_states = torch.stack(outputs.hidden_states)
+        hidden_states = hidden_states.detach().clone().requires_grad_(True)
+        
+        # 먼저 정규화
+        hidden_states = F.normalize(hidden_states, p=2, dim=-1)
+        # 그 다음 clamp
+        hidden_states = torch.clamp(hidden_states, -3.0, 3.0)
+        
+        time_reduced = hidden_states.mean(dim=2)
+        time_reduced = time_reduced.permute(1, 0, 2)
+        
+        # 최종 출력도 정규화 후 clamp
+        time_reduced = F.normalize(time_reduced, p=2, dim=-1)
+        time_reduced = torch.clamp(time_reduced, -2.0, 2.0)
+        
+        return time_reduced
+
+    def freeze(self):
+        for param in self.mert.parameters():
+            param.requires_grad = False
+
+    def unfreeze(self):
+        for param in self.mert.parameters():
+            param.requires_grad = True
+
+
+class MERT_AudioCAT(pl.LightningModule):
+    def __init__(self, embed_dim=768, num_heads=8, num_layers=6, num_classes=2, 
+                 freeze_feature_extractor=False, learning_rate=2e-5, weight_decay=0.01):
+        super(MERT_AudioCAT, self).__init__()
+        self.save_hyperparameters()
+        self.feature_extractor = MERT(freeze_feature_extractor=freeze_feature_extractor)
+        self.cross_attention_layers = nn.ModuleList([
+            CrossAttention(embed_dim, num_heads) for _ in range(num_layers)
+        ])
+        encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, batch_first=True)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.classifier = nn.Sequential(
+            nn.LayerNorm(embed_dim),
+            nn.Linear(embed_dim, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_classes)
+        )
+        
+        # Metrics
+        self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+        self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+        
+        self.train_f1 = torchmetrics.F1Score(task="multiclass", num_classes=num_classes)
+        self.val_f1 = torchmetrics.F1Score(task="multiclass", num_classes=num_classes)
+        self.test_f1 = torchmetrics.F1Score(task="multiclass", num_classes=num_classes)
+        
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        
+    def forward(self, input_values):
+        features = self.feature_extractor(input_values)  
+        for layer in self.cross_attention_layers:
+            features = layer(features, features)
+    
+        features = features.mean(dim=1).unsqueeze(1) 
+        encoded = self.transformer(features) 
+        encoded = encoded.mean(dim=1)  
+        output = self.classifier(encoded) 
+        return output, encoded
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            return None
+        
+        logits, encoded = self(x)
+        
+        if torch.isnan(logits).any() or torch.isinf(logits).any():
+            return None
+            
+        loss = F.cross_entropy(logits, y)
+        
+        if torch.isnan(loss) or torch.isinf(loss):
+            return None
+            
+        preds = torch.argmax(logits, dim=1)
+        self.train_acc(preds, y)
+        self.train_f1(preds, y)
+        
+        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('train_acc', self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_f1', self.train_f1, on_step=False, on_epoch=True, prog_bar=True)
+        
+        return loss
+            
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            return None
+        
+        logits, _ = self(x)
+        
+        if torch.isnan(logits).any() or torch.isinf(logits).any():
+            return None
+            
+        loss = F.cross_entropy(logits, y)
+        
+        if torch.isnan(loss) or torch.isinf(loss):
+            return None
+        
+        preds = torch.argmax(logits, dim=1)
+        self.val_acc(preds, y)
+        self.val_f1(preds, y)
+        
+        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('val_acc', self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('val_f1', self.val_f1, on_step=False, on_epoch=True, prog_bar=True)
+        
+        return loss
+    
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        logits,_ = self(x)
+        loss = F.cross_entropy(logits, y)
+        
+        preds = torch.argmax(logits, dim=1)
+        self.test_acc(preds, y)
+        self.test_f1(preds, y)
+        
+        self.log('test_loss', loss, on_step=False, on_epoch=True)
+        self.log('test_acc', self.test_acc, on_step=False, on_epoch=True)
+        self.log('test_f1', self.test_f1, on_step=False, on_epoch=True)
+        
+        return loss
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay
+        )
+        
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, 
+            mode='min', 
+            factor=0.5, 
+            patience=2, 
+        )
+        
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1
+            }
+        }
+        
+    def unfreeze_feature_extractor(self):
+        self.feature_extractor.unfreeze()
 
 class MusicAudioClassifier(pl.LightningModule):
     def __init__(self,
@@ -34,12 +260,6 @@ class MusicAudioClassifier(pl.LightningModule):
                 hidden_dim=hidden_dim,
                 num_classes=num_classes
             )
-        # elif backbone == 'guided_segment_transformer':
-        #     self.model = GuidedSegmentTransformer(
-        #         input_dim=input_dim,
-        #         hidden_dim=hidden_dim,
-        #         num_classes=num_classes
-        #     )
         self.is_emb = is_emb
     
     def _process_audio_batch(self, x: torch.Tensor) -> torch.Tensor:
@@ -56,12 +276,11 @@ class MusicAudioClassifier(pl.LightningModule):
         return pooled_features.view(B, S, -1)  # [B, S, emb_dim]
     
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        x = self._process_audio_batch(x) # 이걸 freeze하고 쓰는게 사실상 윗버전임
+        x = self._process_audio_batch(x)
         x = x.half()
         return self.model(x, mask)
     
     def _compute_loss_and_probs(self, y_hat: torch.Tensor, y: torch.Tensor):
-        """Compute loss and probabilities based on number of classes"""
         if y_hat.size(0) == 1:
             y_hat_flat = y_hat.flatten()
             y_flat = y.flatten()
@@ -87,10 +306,8 @@ class MusicAudioClassifier(pl.LightningModule):
         
         loss, probs, preds, y_true = self._compute_loss_and_probs(y_hat, y)
         
-        # 간단한 배치 손실만 로깅 (step 수준)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         
-        # 전체 에폭에 대한 메트릭 계산을 위해 예측과 실제값 저장
         if self.num_classes == 2:
             self.training_step_outputs.append({'preds': probs, 'targets': y_true, 'binary_preds': preds})
         else:
@@ -105,10 +322,8 @@ class MusicAudioClassifier(pl.LightningModule):
         
         loss, probs, preds, y_true = self._compute_loss_and_probs(y_hat, y)
         
-        # 간단한 배치 손실만 로깅 (step 수준)
         self.log('val_loss', loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         
-        # 전체 에폭에 대한 메트릭 계산을 위해 예측과 실제값 저장
         if self.num_classes == 2:
             self.validation_step_outputs.append({'preds': probs, 'targets': y_true, 'binary_preds': preds})
         else:
@@ -121,25 +336,20 @@ class MusicAudioClassifier(pl.LightningModule):
         
         loss, probs, preds, y_true = self._compute_loss_and_probs(y_hat, y)
         
-        # 간단한 배치 손실만 로깅 (step 수준)
         self.log('test_loss', loss, on_epoch=True, prog_bar=True)
         
-        # 전체 에폭에 대한 메트릭 계산을 위해 예측과 실제값 저장
         if self.num_classes == 2:
             self.test_step_outputs.append({'preds': probs, 'targets': y_true, 'binary_preds': preds})
         else:
             self.test_step_outputs.append({'probs': probs, 'preds': preds, 'targets': y_true})
 
     def on_train_epoch_start(self):
-        # 에폭 시작 시 결과 저장용 리스트 초기화
         self.training_step_outputs = []
 
     def on_validation_epoch_start(self):
-        # 에폭 시작 시 결과 저장용 리스트 초기화
         self.validation_step_outputs = []
 
     def on_test_epoch_start(self):
-        # 에폭 시작 시 결과 저장용 리스트 초기화
         self.test_step_outputs = []
 
     def _compute_binary_metrics(self, outputs, prefix):
@@ -148,22 +358,18 @@ class MusicAudioClassifier(pl.LightningModule):
         all_targets = torch.cat([x['targets'] for x in outputs])
         binary_preds = torch.cat([x['binary_preds'] for x in outputs])
         
-        # 정확도 계산
         acc = (binary_preds == all_targets).float().mean()
         
-        # 혼동 행렬 요소 계산
         tp = torch.sum((binary_preds == 1) & (all_targets == 1)).float()
         fp = torch.sum((binary_preds == 1) & (all_targets == 0)).float()
         tn = torch.sum((binary_preds == 0) & (all_targets == 0)).float()
         fn = torch.sum((binary_preds == 0) & (all_targets == 1)).float()
         
-        # 메트릭 계산
         precision = tp / (tp + fp) if (tp + fp) > 0 else torch.tensor(0.0).to(tp.device)
         recall = tp / (tp + fn) if (tp + fn) > 0 else torch.tensor(0.0).to(tp.device)
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else torch.tensor(0.0).to(tp.device)
         specificity = tn / (tn + fp) if (tn + fp) > 0 else torch.tensor(0.0).to(tn.device)
         
-        # 로깅
         self.log(f'{prefix}_acc', acc, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log(f'{prefix}_precision', precision, on_epoch=True, sync_dist=True)
         self.log(f'{prefix}_recall', recall, on_epoch=True, sync_dist=True)
@@ -171,7 +377,6 @@ class MusicAudioClassifier(pl.LightningModule):
         self.log(f'{prefix}_specificity', specificity, on_epoch=True, sync_dist=True)
         
         if prefix in ['val', 'test']:
-            # ROC-AUC 계산 (간단한 근사)
             sorted_indices = torch.argsort(all_preds, descending=True)
             sorted_targets = all_targets[sorted_indices]
             
@@ -193,18 +398,14 @@ class MusicAudioClassifier(pl.LightningModule):
             self.log('test_balanced_acc', balanced_acc, on_epoch=True)
 
     def _compute_multiclass_metrics(self, outputs, prefix):
-        """Multi-class classification metrics computation"""
         all_probs = torch.cat([x['probs'] for x in outputs])
         all_preds = torch.cat([x['preds'] for x in outputs])
         all_targets = torch.cat([x['targets'] for x in outputs])
         
-        # 전체 정확도
         acc = (all_preds == all_targets).float().mean()
         self.log(f'{prefix}_acc', acc, on_epoch=True, prog_bar=True, sync_dist=True)
         
-        # 클래스별 메트릭 계산
         for class_idx in range(self.num_classes):
-            # 각 클래스에 대한 이진 분류 메트릭
             class_targets = (all_targets == class_idx).long()
             class_preds = (all_preds == class_idx).long()
             
@@ -221,7 +422,6 @@ class MusicAudioClassifier(pl.LightningModule):
             self.log(f'{prefix}_class_{class_idx}_recall', recall, on_epoch=True)
             self.log(f'{prefix}_class_{class_idx}_f1', f1, on_epoch=True)
         
-        # 매크로 평균 F1 스코어
         class_f1_scores = []
         for class_idx in range(self.num_classes):
             class_targets = (all_targets == class_idx).long()
@@ -268,7 +468,6 @@ class MusicAudioClassifier(pl.LightningModule):
             self._compute_multiclass_metrics(self.test_step_outputs, 'test')
 
     def configure_optimizers(self):
-        # FusedAdam 대신 일반 AdamW 사용 (GLIBC 호환성 문제 해결)
         optimizer = torch.optim.AdamW(
             self.parameters(), 
             lr=self.learning_rate, 
@@ -276,7 +475,7 @@ class MusicAudioClassifier(pl.LightningModule):
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            T_max=100,  # Adjust based on your training epochs
+            T_max=100,  
             eta_min=1e-6
         )
 
@@ -288,27 +487,25 @@ class MusicAudioClassifier(pl.LightningModule):
 
 
 def pad_sequence_with_mask(batch: List[Tuple[torch.Tensor, int]]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Collate function for DataLoader that creates padded sequences and attention masks with fixed length (48)."""
     embeddings, labels = zip(*batch)
-    fixed_len = 48  # 고정 길이
+    fixed_len = 48 
 
     batch_size = len(embeddings)
     feat_dim = embeddings[0].shape[-1]
     
-    padded = torch.zeros((batch_size, fixed_len, feat_dim))  # 고정 길이로 패딩된 텐서
-    mask = torch.ones((batch_size, fixed_len), dtype=torch.bool)  # True는 padding을 의미
+    padded = torch.zeros((batch_size, fixed_len, feat_dim)) 
+    mask = torch.ones((batch_size, fixed_len), dtype=torch.bool)  
     
     for i, emb in enumerate(embeddings):
         length = emb.shape[0]
         
-        # 길이가 고정 길이보다 길면 자르고, 짧으면 패딩
         if length > fixed_len:
-            padded[i, :] = emb[:fixed_len]  # fixed_len보다 긴 부분을 잘라서 채운다.
+            padded[i, :] = emb[:fixed_len]  
             mask[i, :] = False
         else:
-            padded[i, :length] = emb  # 실제 데이터 길이에 맞게 채운다.
-            mask[i, :length] = False  # 패딩이 아닌 부분은 False로 설정
-    
+            padded[i, :length] = emb
+            mask[i, :length] = False
+
     return padded, torch.tensor(labels), mask
 
 
@@ -395,7 +592,6 @@ class SegmentTransformer(nn.Module):
         distances = torch.mean((x_expanded - x_transposed) ** 2, dim=-1)
         similarity_matrix = torch.exp(-distances)  # (batch_size, seq_len, seq_len)
         
-        # 자기 유사도 마스크 생성 및 적용 (각 시점에 대한 마스크 개별 적용)
         if padding_mask is not None:
             similarity_mask = padding_mask.unsqueeze(1) | padding_mask.unsqueeze(2)  # (batch_size, seq_len, seq_len)
             similarity_matrix = similarity_matrix.masked_fill(similarity_mask, 0.0)
@@ -434,10 +630,6 @@ class SegmentTransformer(nn.Module):
     
 
 class PairwiseGuidedTransformer(nn.Module):
-    """Pairwise similarity matrix를 활용한 범용 transformer layer
-    
-    Vision: patch간 유사도, NLP: token간 유사도, Audio: segment간 유사도 등에 활용 가능
-    """
     def __init__(self, d_model: int, num_heads: int = 8):
         super().__init__()
         self.d_model = d_model
@@ -454,12 +646,6 @@ class PairwiseGuidedTransformer(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         
     def forward(self, x, pairwise_matrix, padding_mask=None):
-        """
-        Args:
-            x: (batch, seq_len, d_model) - sequence embeddings
-            pairwise_matrix: (batch, seq_len, seq_len) - pairwise similarity/distance matrix
-            padding_mask: (batch, seq_len) - padding mask
-        """
         batch_size, seq_len, d_model = x.shape
         
         # Standard Q, K, V
@@ -475,7 +661,6 @@ class PairwiseGuidedTransformer(nn.Module):
         # Standard attention scores
         scores = torch.matmul(Q, K.transpose(-2, -1)) / (d_model ** 0.5)
         
-        # ✅ Combine with pairwise matrix
         #pairwise_expanded = pairwise_matrix.unsqueeze(1).expand(-1, self.num_heads, -1, -1)
         enhanced_scores = scores# + pairwise_expanded 이거 빼고 하기로 했죠?
         
@@ -496,7 +681,6 @@ class PairwiseGuidedTransformer(nn.Module):
 
 
 class MultiScaleAdaptivePooler(nn.Module):
-    """Multi-scale adaptive pooling - 다양한 도메인에서 활용 가능"""
     
     def __init__(self, hidden_dim: int, num_heads: int = 8):
         super().__init__()
@@ -514,42 +698,14 @@ class MultiScaleAdaptivePooler(nn.Module):
         
         
     def forward(self, x, padding_mask=None):
-        """
-        Args:
-            x: (batch, seq_len, hidden_dim) - sequence features
-            padding_mask: (batch, seq_len) - padding mask
-            actually not better than avg pooling haha
-        """
         batch_size = x.size(0)
         
-        # 1. Global average pooling
         if padding_mask is not None:
             mask_expanded = (~padding_mask).float().unsqueeze(-1)
             global_avg = (x * mask_expanded).sum(dim=1) / mask_expanded.sum(dim=1)
         else:
             global_avg = x.mean(dim=1)
         
-        # # 2. Global max pooling
-        # if padding_mask is not None:
-        #     x_masked = x.clone()
-        #     x_masked[padding_mask] = float('-inf')
-        #     global_max = x_masked.max(dim=1)[0]
-        # else:
-        #     global_max = x.max(dim=1)[0]
-        
-        # global_max = self.max_pool_proj(global_max)
-        
-        # # 3. Attention-based pooling
-        # query = self.query_token.expand(batch_size, -1, -1)
-        # attn_pooled, _ = self.attention_pool(
-        #     query, x, x, 
-        #     key_padding_mask=padding_mask
-        # )
-        # attn_pooled = attn_pooled.squeeze(1)
-        
-        # # 4. Fuse all pooling results
-        # #combined = torch.cat([global_avg, global_max, attn_pooled], dim=-1)
-        # #output = self.fusion(combined)
         output = global_avg
         return output
 
@@ -581,13 +737,11 @@ class GuidedSegmentTransformer(nn.Module):
         pos_encoding[:, 1::2] = torch.cos(position * div_term)
         self.register_buffer('pos_encoding', pos_encoding)
         
-        # ✅ Pairwise-guided transformer layers (범용적 이름)
         self.pairwise_guided_layers = nn.ModuleList([
             PairwiseGuidedTransformer(hidden_dim, num_heads)
             for _ in range(num_layers)
         ])
         
-        # Pairwise matrix processing (기존 similarity processing)
         self.pairwise_projection = nn.Sequential(
             nn.Conv1d(1, hidden_dim // 2, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -596,7 +750,6 @@ class GuidedSegmentTransformer(nn.Module):
             nn.Dropout(dropout)
         )
         
-        # ✅ Multi-scale adaptive pooling (범용적 이름)
         self.adaptive_pooler = MultiScaleAdaptivePooler(hidden_dim, num_heads)
         
         # Final classification head
@@ -633,7 +786,6 @@ class GuidedSegmentTransformer(nn.Module):
             pairwise_mask = padding_mask.unsqueeze(1) | padding_mask.unsqueeze(2)
             pairwise_matrix = pairwise_matrix.masked_fill(pairwise_mask, 0.0)
 
-        # ✅ Pairwise-guided processing
         for layer in self.pairwise_guided_layers:
             x1 = layer(x1, pairwise_matrix, padding_mask)
 
@@ -646,7 +798,6 @@ class GuidedSegmentTransformer(nn.Module):
             x2 = x2.view(batch_size, seq_len, -1)
             x2 = x2 + self.pos_encoding[:seq_len].unsqueeze(0)
 
-        # ✅ Multi-scale adaptive pooling
         if self.mode == 'only_emb':
             x = self.adaptive_pooler(x1, padding_mask)
         elif self.mode == 'only_structure':
@@ -661,16 +812,13 @@ class GuidedSegmentTransformer(nn.Module):
     
 
 class CrossModalFusionLayer(nn.Module):
-    """Structure와 Embedding 정보를 점진적으로 융합"""
     
     def __init__(self, d_model: int, num_heads: int = 8):
         super().__init__()
         
-        # Cross-attention: embedding이 structure를 query하고, structure가 embedding을 query
         self.emb_to_struct_attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
         self.struct_to_emb_attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
-        
-        # Fusion gate (어느 정보를 얼마나 믿을지)
+
         self.fusion_gate = nn.Sequential(
             nn.Linear(d_model * 2, d_model),
             nn.Sigmoid()
@@ -680,30 +828,22 @@ class CrossModalFusionLayer(nn.Module):
         self.norm2 = nn.LayerNorm(d_model)
         
     def forward(self, emb_features, struct_features, padding_mask=None):
-        """
-        emb_features: (batch, seq_len, d_model) - 메인 embedding 정보
-        struct_features: (batch, seq_len, d_model) - structure 정보
-        """
-        
-        # 1. Embedding이 Structure 정보를 참조
+
         emb_enhanced, _ = self.emb_to_struct_attn(
             emb_features, struct_features, struct_features,
             key_padding_mask=padding_mask
         )
         emb_enhanced = self.norm1(emb_features + emb_enhanced)
         
-        # 2. Structure가 Embedding 정보를 참조
         struct_enhanced, _ = self.struct_to_emb_attn(
             struct_features, emb_features, emb_features,
             key_padding_mask=padding_mask
         )
         struct_enhanced = self.norm2(struct_features + struct_enhanced)
         
-        # 3. Adaptive fusion (둘 중 어느 것을 더 믿을지 학습)
         combined = torch.cat([emb_enhanced, struct_enhanced], dim=-1)
         gate_weight = self.fusion_gate(combined)  # (batch, seq_len, d_model)
         
-        # Gated combination
         fused = gate_weight * emb_enhanced + (1 - gate_weight) * struct_enhanced
         
         return fused
@@ -717,7 +857,7 @@ class FusionSegmentTransformer(nn.Module):
                  num_layers: int = 4,
                  dropout: float = 0.1,
                  max_sequence_length: int = 1000,
-                 mode: str = 'both',  # 기본값을 both로
+                 mode: str = 'both', 
                  share_parameter: bool = False,
                  num_classes: int = 2):
         super().__init__()
@@ -734,13 +874,11 @@ class FusionSegmentTransformer(nn.Module):
         pos_encoding[:, 1::2] = torch.cos(position * div_term)
         self.register_buffer('pos_encoding', pos_encoding)
         
-        # ✅ Embedding stream: Pairwise-guided transformer
         self.embedding_layers = nn.ModuleList([
             PairwiseGuidedTransformer(hidden_dim, num_heads)
             for _ in range(num_layers)
         ])
         
-        # ✅ Structure stream: Pairwise matrix processing
         self.pairwise_projection = nn.Sequential(
             nn.Conv1d(1, hidden_dim // 2, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -749,7 +887,6 @@ class FusionSegmentTransformer(nn.Module):
             nn.Dropout(dropout)
         )
         
-        # Structure transformer layers
         self.structure_layers = nn.ModuleList([
             nn.TransformerEncoderLayer(
                 d_model=hidden_dim,
@@ -757,23 +894,20 @@ class FusionSegmentTransformer(nn.Module):
                 dim_feedforward=hidden_dim * 4,
                 dropout=dropout,
                 batch_first=True
-            ) for _ in range(num_layers // 2)  # 절반만 사용
+            ) for _ in range(num_layers // 2)  
         ])
         
-        # ✅ Cross-modal fusion layers (핵심!)
         self.fusion_layers = nn.ModuleList([
             CrossModalFusionLayer(hidden_dim, num_heads)
-            for _ in range(1)  # fusion은 하나만 써야 gate가 유의미해질듯
+            for _ in range(1)  
         ])
         
-        # Adaptive pooling
         self.adaptive_pooler = MultiScaleAdaptivePooler(hidden_dim, num_heads)
         
-        # Final classification head (이제 단일 차원)
         output_dim = 1 if num_classes == 2 else num_classes
         
         self.classification_head = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),  # 더 이상 concat 안함
+            nn.Linear(hidden_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
@@ -816,12 +950,11 @@ class FusionSegmentTransformer(nn.Module):
         for emb_layer in self.embedding_layers:
             x_emb = emb_layer(x_emb, pairwise_matrix, padding_mask)
         
-        # ✅ 5. Progressive Cross-modal Fusion (핵심!)
-        fused = x_emb  # 시작은 embedding에서
+        # 5. Progressive Cross-modal Fusion 
+        fused = x_emb  
         for fusion_layer in self.fusion_layers:
             fused = fusion_layer(fused, x_struct, padding_mask)
-            # 이제 fused는 embedding + structure 정보를 모두 포함
-        
+
         # 6. Final pooling and classification
         pooled = self.adaptive_pooler(fused, padding_mask)
         

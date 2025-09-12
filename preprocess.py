@@ -12,7 +12,6 @@ import librosa
 import gc
 
 def get_segments_from_wav(wav_path, device="cuda", max_duration=300):
-    """오디오 파일에서 비트와 다운비트를 추출합니다."""
     file2beats = File2Beats(checkpoint_path="final0", device=device, dbn=False)
     beats, downbeats = file2beats(wav_path)
     
@@ -23,7 +22,6 @@ def get_segments_from_wav(wav_path, device="cuda", max_duration=300):
     return beats, downbeats
 
 def find_optimal_segment_length(downbeats, round_decimal=1, bar_length=4):
-    """다운비트 간격들의 분포를 분석하여 최적의 4마디 길이와 정제된 다운비트 위치들을 반환합니다."""
     if len(downbeats) < 2:
         return 10.0, downbeats
     
@@ -43,23 +41,18 @@ def find_optimal_segment_length(downbeats, round_decimal=1, bar_length=4):
     return float(most_common_interval * bar_length), np.array(cleaned_downbeats)
 
 def process_audio_file(file_info, output_base_dir, device="cuda", max_duration=300, min_duration=30):
-    """단일 오디오 파일을 처리하고 세그먼트를 추출합니다."""
     audio_file, relative_path, output_subdir = file_info
-    
-    # 출력 디렉토리 설정
+
     output_dir = Path(output_base_dir) / output_subdir
     file_seg_dir = output_dir / audio_file.stem
-    
-    # 이미 처리된 파일인지 체크
+
     if file_seg_dir.exists() and list(file_seg_dir.glob("segment_*.mp3")):
         return -1
     
-    # 파일 크기 체크
     file_size_mb = os.path.getsize(audio_file) / (1024 * 1024)
     if file_size_mb > 100:
         return 0
     
-    # 오디오 길이 체크
     info = torchaudio.info(str(audio_file))
     total_duration = info.num_frames / info.sample_rate
     
@@ -77,13 +70,11 @@ def process_audio_file(file_info, output_base_dir, device="cuda", max_duration=3
     
     sample_rate = info.sample_rate
     
-    # 최대 길이 제한
     if total_duration > max_duration:
         total_duration = max_duration
     
     segments_count = 0
     
-    # 각 다운비트에서 시작하는 세그먼트 생성
     for i, start_time in enumerate(cleaned_downbeats):
         end_time = start_time + optimal_length
         
@@ -99,7 +90,6 @@ def process_audio_file(file_info, output_base_dir, device="cuda", max_duration=3
             num_frames=end_frame - start_frame
         )
         
-        # MP3로 세그먼트 저장 (320kbps)
         save_path = file_seg_dir / f"segment_{i}.mp3"
         torchaudio.save(
             str(save_path), 
@@ -107,7 +97,6 @@ def process_audio_file(file_info, output_base_dir, device="cuda", max_duration=3
             sr,
             backend = "sox",
             format="mp3",
-            # # encoding="MP3",
             compression=320
         )
         segments_count += 1
@@ -120,11 +109,9 @@ def process_audio_file(file_info, output_base_dir, device="cuda", max_duration=3
     return segments_count
 
 def process_file_wrapper(args):
-    """multiprocessing용 래퍼 함수"""
     return process_audio_file(*args)
 
 def segment_dataset(base_dir, output_base_dir, num_workers=4, device="cuda", max_duration=300, min_duration=30, labels=None):
-    """멀티프로세싱을 사용한 세그먼트 추출"""
     base_path = Path(base_dir)
     
     stats = {
@@ -134,7 +121,6 @@ def segment_dataset(base_dir, output_base_dir, num_workers=4, device="cuda", max
         "skipped_files": 0,
     }
     
-    # 레이블 설정
     if labels is None:
         labels = ["ai_cover", "real", "fake"]
     
@@ -144,7 +130,6 @@ def segment_dataset(base_dir, output_base_dir, num_workers=4, device="cuda", max
         if not input_dir.exists():
             continue
         
-        # 해당 레이블 폴더에서 재귀적으로 오디오 파일 찾기
         audio_files = []
         audio_extensions = {'.wav', '.mp3', '.flac', '.m4a', '.aac', '.ogg'}
         
@@ -157,17 +142,14 @@ def segment_dataset(base_dir, output_base_dir, num_workers=4, device="cuda", max
         if not audio_files:
             continue
         
-        # 파일 크기별로 정렬
         audio_files.sort(key=lambda x: os.path.getsize(x[0]))
         
-        # 멀티프로세싱으로 처리
         args_list = [(file_info, output_base_dir, device, max_duration, min_duration) for file_info in audio_files]
         
         with multiprocessing.Pool(num_workers) as pool:
             results = list(tqdm(pool.imap(process_file_wrapper, args_list), 
                               total=len(args_list), desc=f"Processing {label}"))
         
-        # 결과 집계
         for segments_count in results:
             if segments_count == -1:
                 stats["skipped_files"] += 1
@@ -185,9 +167,9 @@ def segment_dataset(base_dir, output_base_dir, num_workers=4, device="cuda", max
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract segments from audio files recursively")
-    parser.add_argument("--input", type=str, default="/data/datasets/real_musics",
+    parser.add_argument("--input", type=str, default="",
                         help="Input directory with audio files")
-    parser.add_argument("--output", type=str, default="/data/datasets/ai_detection_dataset_segment",
+    parser.add_argument("--output", type=str, default="",
                         help="Output directory for segments")
     parser.add_argument("--workers", type=int, default=14,
                         help="Number of parallel workers")

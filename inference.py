@@ -5,11 +5,10 @@ import numpy as np
 import torch
 from typing import List, Tuple, Optional, Dict
 import pytorch_lightning as pl
-from model import MusicAudioClassifier
+from model import MusicAudioClassifier, MERT_AudioCAT
 import argparse
 import torchaudio
 import scipy.signal as signal
-from networks import MERT_AudioCAT
 from preprocess import get_segments_from_wav, find_optimal_segment_length
 
 from rich.console import Console
@@ -76,7 +75,6 @@ def load_audio(audio_path: str, sr: int = 24000) -> Tuple[torch.Tensor, torch.Te
 
 def run_inference(model, audio_segments: torch.Tensor, padding_mask: torch.Tensor,
                   device: str = 'cuda' if torch.cuda.is_available() else 'cpu') -> Dict:
-    """Run inference on audio segments."""
     model.eval()
     model.to(device)
     model = model.half()
@@ -119,7 +117,7 @@ def scaled_sigmoid(x, scale_factor=0.2, linear_property=0.3):
 def get_model(model_type, device):
     if model_type == "MERT":
         ckpt_file = ""  # TODO: Download Stage-1 checkpoint and set path here
-        model = MERT_AudioCNN.load_from_checkpoint(ckpt_file).to(device)
+        model = MERT_AudioCAT.load_from_checkpoint(ckpt_file).to(device)
         model.eval()
         embed_dim = 768
     else:
