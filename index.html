@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fusion Segment Transformer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+darkMode: 'class',
+}
+</script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+/* Ensures smooth font rendering */
+body {
+-webkit-font-smoothing: antialiased;
+-moz-osx-font-smoothing: grayscale;
+}
+</style>
+<script type="importmap">
+{
+"imports": {
+"react": "https://aistudiocdn.com/react@^19.1.1",
+"react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+"react/": "https://aistudiocdn.com/react@^19.1.1/",
+"lucide-react": "https://aistudiocdn.com/lucide-react@^0.542.0",
+"vite": "https://aistudiocdn.com/vite@^7.1.4",
+"@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.2"
+}
+}
+</script>
+</head>
+<body class="bg-white dark:bg-gray-900 transition-colors duration-300">
+<div id="root">
+<div class="font-sans text-gray-800 dark:text-gray-200">
+<div class="fixed top-4 right-4 z-50 flex items-center gap-4">
+<img src="./fig/mippia.png" alt="MIPPIA Logo" class="h-10">
+<button id="theme-toggle" class="p-3 rounded-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm text-gray-800 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700 transition-all shadow-lg" aria-label="Toggle dark mode">
+<i data-lucide="moon" id="theme-icon-moon"></i>
+<i data-lucide="sun" id="theme-icon-sun" class="hidden"></i>
+</button>
+</div>
+
+<header class="relative h-[70vh] min-h-[500px] text-white overflow-hidden bg-cover bg-center"
+        style="background-image: url('./fig/background.png')">
+  
+
+  
+            <div class="absolute inset-0 bg-black bg-opacity-60"></div>
+            <div class="relative z-10 h-full flex flex-col justify-center items-center text-center p-6">
+                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight max-w-4xl drop-shadow-md">
+                    Fusion Segment Transformer: <br> Bi-directional attention guided fusion network for AI-Generated Music Detection
+                </h1>
+                <p class="mt-8 text-xl font-bold text-sky-400 drop-shadow-md">
+                  Submitted @ ICASSP 2026
+                </p>
+
+    <div class="mt-4 text-lg font-bold drop-shadow-md">
+      <p>Yumin Kim*, Seonghyeon Go*</p>
+      <p class="mt-1">MIPPIA Inc.</p>
+    </div>
+    <div class="flex flex-wrap justify-center gap-4 mt-6">
+
+      <a href="https://github.com/Mippia/ICASSP2026-FST/" target="_blank" rel="noopener noreferrer"
+   class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition">
+
+  <img src="./fig/github.png   " alt="GitHub Logo" class="w-5 h-5">
+  <span>Code</span>
+</a>
+
+<a href="https://huggingface.co/spaces/mippia/AI-Music-Detection-FST" target="_blank" rel="noopener noreferrer"
+   class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition">
+
+  <img src="./fig/huggingface-color.png" alt="GitHub Logo" class="w-5 h-5">
+  <span>Demo</span>
+</a>
+
+      <a href="https://mippia.com/" target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition">
+        <img src="./fig/mippia-logo.png" alt="Mippia Icon" class="w-5 h-5">
+        <span>MIPPIA</span>
+      </a>
+    </div>
+
+  </div>
+</header>
+
+        <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <section class="py-8 md:py-12">
+                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Abstract</h2>
+                <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                    <p class="text-justify indent-8">
+                        With the rise of generative AI technology, anyone can now easily create and deploy AI-generated music, which has heightened the need for technical solutions to address copyright and ownership issues.
+                        While existing works have largely focused on short-audio, the challenge of full-audio detection, which requires modeling long-term structure and context, remains insufficiently explored. 
+                        To address this, we propose an improved version of the Segment Transformer, termed <strong>Fusion Segment Transformer</strong>. As in our previous work, we extract content embeddings from short music segments using diverse feature extractors. 
+                        Furthermore, we enhance the architecture for full-audio AI-generated music detection by introducing a Gated Fusion Layer that effectively integrates content and structural information, enabling the capture of long-term context. 
+                        Experiments on the SONICS and AIME datasets show that our approach consistently outperforms the previous model and recent baselines, achieving state-of-the-art results in full-audio segment detection.
+                    </p>
+                </div>
+            </section>
+            
+            <section class="py-8 md:py-12">
+                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Preliminaries</h2>
+                <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                    <h3 class="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">
+                        Our previous work: Segment Transformer <br>
+                        <span class="text-xl text-gray-500 dark:text-gray-400">Accepted @ APSIPA 2025</span>
+                    </h3>
+                    <p class="text-justify">
+                        We first provide a brief overview of the architecture of our previous work, the Segment Transformer. We propose a two-stage AI-generated music detection (AIGM) framework.
+                    </p>
+                    <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg my-4 text-center">
+                        <strong class="text-lg">🎼 Stage-1: Short Audio Segment Detection Model</strong>
+                    </div>
+                    <p class="text-justify">
+                         In stage-1, we aim to extract meaningful embedding from a given short segment. 
+                         We use pre-trained self-supervised learning (SSL) models, including Wav2vec, Music2Vec, and MERT, along with the pre-trained FXencoder, to obtain embeddings that capture local musical characteristics.
+                         To better adapt these encoder outputs to the AIGM detection task, we designed the AudioCAT framework, which flexibly employs SSL models and the FXencoder as feature extractor encoders and combines them with a fixed Cross-Attention–based Transformer decoder.
+                        </p>
+                    <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                        <img src="./fig/segmenttransformer_fig1.png" alt="Segment Transformer Figure 1" class="w-full h-auto object-cover">
+                    </div>
+                    <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg my-4 text-center">
+                        <strong class="text-lg">🎼 Stage-2: Full Audio Segment Detection Model</strong>
+                    </div>
+
+                    <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                        <img src="./fig/segmenttransformer_fig2.png" alt="Segment Transformer Figure 2" class="w-full h-auto object-cover">
+                    </div>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>Math Example</title>
+                        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+                        <script id="MathJax-script" async
+                            src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+                        </script>
+                        </head>
+                        <body>
+                        <p>
+                            In stage-2, we use a beat-tracking algorithm to split music tracks into four-bar segments 
+                            and extract embeddings with the model in stage-1, resulting in a sequence of segment embeddings 
+                            \( E = \{e_1, e_2, ..., e_N\} \) where each \( e_i \in \mathbb{R}^d \), 
+                            where \( d \) is the embedding size of the extractor.
+                            <br>
+                            <br>
+                            We then compute a self-similarity matrix 
+                            \( M \in \mathbb{R}^{N \times N} \) 
+                            to capture structural information, and we input both the embeddings and the similarity matrix into two parallel Transformer encoders. 
+                            The final representation 
+                            \( h_{\text{final}} = h_{\text{content}} \oplus h_{\text{similarity}} \) 
+                            integrates local segment features with global structural patterns through simple concatenation.
+                                                    </p>
+                        </body>
+                </div>
+            </section>
+            
+            <div class="bg-blue-600 dark:bg-blue-700 text-white p-8 rounded-2xl text-center my-12 shadow-lg">
+                <h3 class="text-3xl font-bold">🎼 Proposed Method: <br> Fusion Segment Transformer</h3>
+            </div>
+
+            <section class="py-8 md:py-12">
+                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Methodology</h2>
+                <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                    <p class="text-left font-medium">
+                        This work follows a two-stage pipeline that extends the architecture of our previous work, Segment Transformer.
+                    </p>
+                    <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg my-4 text-center">
+                        <strong class="text-lg">🎼 Stage-1: Feature Embedding Extractor for Short Audio Segment Detection</strong>
+                    </div>
+                    <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                        <img src="./fig/fig1.png" alt="Proposed Method Figure 1" class="w-full h-auto object-cover">
+                    </div>
+                    <p class="text-left mt-2">
+                        In previous work, we employed various feature extractors with the AudioCAT to obtain segment-level embeddings, where models were pre-trained using cross-entropy loss. 
+                        But these models focus primarily on temporal patterns rather than detailed frequency-domain analysis.
+                        To explore whether frequency-domain features could complement AIGM detection, we experimented with integrating the Muffin Encoder into the AudioCAT feature extractor.
+                    </p>
+                    <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg my-8 text-center">
+                        <strong class="text-lg">🎼 Stage-2: Fusion Segment Transformer for Full Audio Segment Detection</strong>
+                    </div>
+                    <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                        <img src="./fig/fig2.png" alt="Proposed Method Figure 2" class="w-full h-auto object-cover">
+                    </div>
+                    <p class="text-left mt-2">
+                        We extract segment embeddings from stage-1 and compute a self-similarity matrix (SSM) to capture music structure. 
+                        Unlike the previous Segment Transformer that simply concatenated these two features, our Fusion Segment Transformer employs dual streams: an embedding stream for content and an SSM stream for structure. 
+                        A cross-modal fusion layer with bi-directional cross-attention and a gated unit integrates content and structural information. 
+                        The fused representation is finally fed into a classification head for AI-generated music detection.
+                    </p>
+                </div>
+            </section>
+            
+            <section class="py-8 md:py-12">
+                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Quantitative Results</h2>
+                <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                    <h4 class="text-2xl font-semibold text-center mb-4">SONICS</h4>
+                    <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                        <img src="./fig/sonics.png" alt="SONICS results table" class="w-full h-auto object-cover">
+                    </div>
+                    <p class="text-left mt-4">
+                       Comparison of various methods for full-audio detection (stage-2) on SONICS dataset. Our proposed method is highlighted in yellow.
+                        <br>
+                        <i>Best</i> : <strong>Bold</strong>; <i>Second best</i> : <u>Underline</u>.
+                    </p>
+                    <h4 class="text-2xl font-semibold text-center mt-12 mb-4">AIME</h4>
+                    <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                        <img src="./fig/aime.png" alt="AIME results table" class="w-full h-auto object-cover">
+                    </div>
+                    <p class="text-left mt-4">
+                        Comparison with the Segment Transformer for full-audio detection (stage-2) on the AIME dataset.
+                        <br>
+                        <i>Best</i> : <strong>Bold</strong>; <i>Second best</i> : <u>Underline</u>.
+                    </p>
+                </div>
+            </section>
+
+            <section class="py-8 md:py-12">
+                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Segment Transformer</h2>
+                <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 font-mono text-sm text-gray-800 dark:text-gray-200 overflow-x-auto">
+                    <div class="flex items-start gap-4">
+                        <i data-lucide="code-2" class="text-gray-400 dark:text-gray-500 flex-shrink-0 mt-1"></i>
+                        <pre><code>@article{kim2025fusion,
+                    author    = {Yumin Kim and Seonghyeon Go},
+                    title     = {Segment Transformer: AI-Generated Music Detection via Music Structural Analysis},
+                    journal   = {arXiv preprint arXiv:2509.08283},
+                    year      = {2025},
+                    url       = {https://arxiv.org/abs/2509.08283}
+
+                    }</code></pre>
+</div>
+</div>
+</section>
+<footer class="text-center mt-16 py-8 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-gray-500 dark:text-gray-400">
+                    This website is licensed under a <a href="http://creativecommons.org/licenses/by-sa/4.0/" class="text-blue-500 hover:underline">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+                </p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                </p>
+            </footer>
+        </main>
+    </div>
+</div>
+
+<script>
+  // Initialize Lucide icons
+  lucide.createIcons();
+
+  // Dark Mode Toggle Logic
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  const moonIcon = document.getElementById('theme-icon-moon');
+  const sunIcon = document.getElementById('theme-icon-sun');
+  const htmlElement = document.documentElement;
+
+  const setTheme = (isDark) => {
+    if (isDark) {
+      htmlElement.classList.add('dark');
+      moonIcon.classList.add('hidden');
+      sunIcon.classList.remove('hidden');
+    } else {
+      htmlElement.classList.remove('dark');
+      moonIcon.classList.remove('hidden');
+      sunIcon.classList.add('hidden');
+    }
+  };
+  
+  // Check for saved theme in localStorage or system preference on page load
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const savedTheme = localStorage.getItem('isDarkMode');
+
+  if (savedTheme !== null) {
+    setTheme(savedTheme === 'true');
+  } else {
+    setTheme(prefersDark);
+  }
+
+  // Add click event listener to the toggle button
+  themeToggleBtn.addEventListener('click', () => {
+    const isCurrentlyDark = htmlElement.classList.contains('dark');
+    setTheme(!isCurrentlyDark);
+    localStorage.setItem('isDarkMode', !isCurrentlyDark);
+  });
+</script>
