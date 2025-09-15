@@ -5,7 +5,7 @@
 <h3>Submitted @ ICCASP 2026</h3>
 
 <p>
-  <b>Yumin Kim</b> · <b>Seonghyeon Go</b>
+  <b>Yumin Kim*</b> · <b>Seonghyeon Go*</b>
 </p>
 
 <p>MIPPIA Inc.</p>
