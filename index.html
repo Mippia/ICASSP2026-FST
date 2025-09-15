@@ -49,7 +49,7 @@ body {
   
             <div class="absolute inset-0 bg-black bg-opacity-60"></div>
             <div class="relative z-10 h-full flex flex-col justify-center items-center text-center p-6">
-                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight max-w-4xl drop-shadow-md">
+                <h1 class="text-5xl md:text-5xl font-extrabold tracking-tight leading-tight max-w-4xl drop-shadow-md">
                     Fusion Segment Transformer: <br> Bi-directional attention guided fusion network for AI-Generated Music Detection
                 </h1>
                 <p class="mt-8 text-xl font-bold text-sky-400 drop-shadow-md">
@@ -88,7 +88,7 @@ body {
 
         <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <section class="py-8 md:py-12">
-                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Abstract</h2>
+                <h2 class="text-4xl font-bold text-center mb-8 text-gray-900 dark:text-white">Abstract</h2>
                 <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
                     <p class="text-justify indent-8">
                         With the rise of generative AI technology, anyone can now easily create and deploy AI-generated music, which has heightened the need for technical solutions to address copyright and ownership issues.
@@ -101,9 +101,9 @@ body {
             </section>
             
             <section class="py-8 md:py-12">
-                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Preliminaries</h2>
+                <h2 class="text-4xl font-bold text-center mb-8 text-gray-900 dark:text-white">Preliminaries</h2>
                 <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
-                    <h3 class="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">
+                    <h3 class="text-3xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">
                         Our previous work: Segment Transformer <br>
                         <span class="text-xl text-gray-500 dark:text-gray-400">Accepted @ APSIPA 2025</span>
                     </h3>
@@ -156,11 +156,11 @@ body {
             </section>
             
             <div class="bg-blue-600 dark:bg-blue-700 text-white p-8 rounded-2xl text-center my-12 shadow-lg">
-                <h3 class="text-3xl font-bold">🎼 Proposed Method: <br> Fusion Segment Transformer</h3>
+                <h3 class="text-4xl font-bold">🎼 Proposed Method: <br> Fusion Segment Transformer</h3>
             </div>
 
             <section class="py-8 md:py-12">
-                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Methodology</h2>
+                <h2 class="text-4xl font-bold text-center mb-8 text-gray-900 dark:text-white">Methodology</h2>
                 <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
                     <p class="text-left font-medium">
                         This work follows a two-stage pipeline that extends the architecture of our previous work, Segment Transformer.
@@ -192,13 +192,13 @@ body {
             </section>
             
             <section class="py-8 md:py-12">
-                <h2 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">Quantitative Results</h2>
+                <h2 class="text-4xl font-bold text-center mb-8 text-gray-900 dark:text-white">Quantitative Results</h2>
                 <div class="space-y-6 text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
-                    <h4 class="text-2xl font-semibold text-center mb-4">SONICS</h4>
+                    <h4 class="text-3xl font-semibold text-center mb-4">SONICS</h4>
                     <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
                         <img src="./fig/sonics.png" alt="SONICS results table" class="w-full h-auto object-cover">
                     </div>
-                    <p class="text-left mt-4">
+                    <p class="text-center mt-4">
                        Comparison of various methods for full-audio detection (stage-2) on SONICS dataset. Our proposed method is highlighted in yellow.
                         <br>
                         <i>Best</i> : <strong>Bold</strong>; <i>Second best</i> : <u>Underline</u>.
@@ -207,7 +207,7 @@ body {
                     <div class="my-6 overflow-hidden rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
                         <img src="./fig/aime.png" alt="AIME results table" class="w-full h-auto object-cover">
                     </div>
-                    <p class="text-left mt-4">
+                    <p class="text-center mt-4">
                         Comparison with the Segment Transformer for full-audio detection (stage-2) on the AIME dataset.
                         <br>
                         <i>Best</i> : <strong>Bold</strong>; <i>Second best</i> : <u>Underline</u>.
@@ -220,14 +220,12 @@ body {
                 <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 font-mono text-sm text-gray-800 dark:text-gray-200 overflow-x-auto">
                     <div class="flex items-start gap-4">
                         <i data-lucide="code-2" class="text-gray-400 dark:text-gray-500 flex-shrink-0 mt-1"></i>
-                        <pre><code>@article{kim2025fusion,
-                    author    = {Yumin Kim and Seonghyeon Go},
-                    title     = {Segment Transformer: AI-Generated Music Detection via Music Structural Analysis},
-                    journal   = {arXiv preprint arXiv:2509.08283},
-                    year      = {2025},
-                    url       = {https://arxiv.org/abs/2509.08283}
-
-                    }</code></pre>
+                        <pre>@article{kim2025segment,
+  title={Segment Transformer: AI-Generated Music Detection via Music Structural Analysis},
+  author={Kim, Yumin and Go, Seonghyeon},
+  journal={arXiv preprint arXiv:2509.08283},
+  year={2025},
+  note={Accepted for publication in APSIPA ASC 2025}}</code></pre>
 </div>
 </div>
 </section>

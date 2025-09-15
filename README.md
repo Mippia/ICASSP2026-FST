@@ -43,11 +43,12 @@ pip install -r requirements.txt
 ## Download Checkpoints and Datasets
 To get started, download the our pre-trained checkpoints from Google Drive:
 ```bash
-## Stage-1 model checkpoints
+### Stage-1 model checkpoints
 - [Stage-1 (MERT-AudioCAT)](https://drive.google.com/file/d/1frT4Mn0l6rso407Sy3eWCKbZmgwuVceN/view?usp=sharing)
 
-## Stage-2 model checkpoints
+### Stage-2 model checkpoints
 - [Stage-2 (Fusion Segment Transformer)](https://drive.google.com/file/d/1E_xPsosYWI4UjKT8XQCbZW4ILvsWnmda/view?usp=sharing)
+
 
 ```
 
