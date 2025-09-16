@@ -55,7 +55,7 @@ python inference.py --audio ./examples/test.wav
 
 ## License
 Our code and demo website are licensed under a 
-  <a href="https://creativecommons.org/licenses/by-nc/4.0/" 
+  <a href="https://www.gnu.org/licenses/gpl-3.0.html" 
      class="text-blue-500 hover:underline">
-    Creative Commons Attribution-NonCommercial 4.0 International License
+    GPL License
   </a>.
