@@ -1,12 +1,11 @@
 <div align="center">
 
-#  <img width="534" height="534" alt="image" src="https://github.com/user-attachments/assets/f54d75f1-958c-4433-a2ef-7b1b3f8f1cc4" />
- FUSION SEGMENT TRANSFORMER: BI-DIRECTIONAL ATTENTION GUIDED FUSION NETWORK FOR AI GENERATED MUSIC DETECTION
+# FUSION SEGMENT TRANSFORMER: BI-DIRECTIONAL ATTENTION GUIDED FUSION NETWORK FOR AI GENERATED MUSIC DETECTION
 
 <h3>Submitted @ ICCASP 2026</h3>
 
 <p>
-  <b>Seonghyeon Go*</b> · <b>Yumin Kim*</b> 
+  <b>Yumin Kim*</b> · <b>Seonghyeon Go*</b>
 </p>
 
 <p>MIPPIA Inc.</p>
