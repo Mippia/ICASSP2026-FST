@@ -16,7 +16,8 @@
 </div>
 
 
-<img width="2247" height="655" alt="Image" src="https://github.com/user-attachments/assets/2ec1b58a-0f61-40cd-969e-3061cdb7b74a" />
+<img width="2243" height="651" alt="Image" src="https://github.com/user-attachments/assets/9d08ef5f-cffc-4310-9537-de9e5a06600e" />
+
 
 ## Abstract
 With the rise of generative AI technology, anyone can now easily create and deploy AI-generated music, which has heightened the need for technical solutions to address copyright and ownership issues. While existing works have largely focused on short-audio, the challenge of full-audio detection, which requires modeling long-term structure and context, remains insufficiently explored. To address this, we propose an improved version of the Segment Transformer, termed Fusion Segment Transformer. As in our previous work, we extract content embeddings from short music segments using diverse feature extractors. Furthermore, we enhance the architecture for full-audio AI-generated music detection by introducing a Gated Fusion Layer that effectively integrates content and structural information, enabling the capture of long-term context. Experiments on the SONICS and AIME datasets show that our approach consistently outperforms the previous model and recent baselines, achieving state-of-the-art results in full-audio segment detection. 
