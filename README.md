@@ -10,7 +10,7 @@
 
 <p>MIPPIA Inc.</p>
 
-[![Project Page](https://img.shields.io/badge/Project-Website-blue)](https://mippia.github.io/ICASSP2026-FST/)
+[![Project Page](https://img.shields.io/badge/Project-Website-blue)](https://mippia.github.io/icassp-fst/)
 [![Demo Page](https://img.shields.io/badge/Demo-Page-red)](https://huggingface.co/spaces/mippia/AI-Music-Detection-FST)
 
 </div>
